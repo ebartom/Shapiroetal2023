@@ -26,6 +26,7 @@ module load R/3.3.3
 
 #Generating ISPTZ files for POLII/H3K9me2 for  Control and DFO groups (for UCSC genome browser tracks).
 # First generate bedgraphs from the bam files, subtracting input samples from the specific ChIP-seq files
+# Bam files are not made available on Github, because they are too large.  Fastq files are available from GEO at https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE214019 and were aligned to hg19 using Bowtie.
 bamCompare -b1 bam/293T_150DFO_H3K9me2_12hr.bam -b2 bam/293T_150DFO_Input_12hr.bam --operation subtract -o bedgraph/293T_150DFO_H3K9me2_12hr_InputSubtracted.bdg -of bedgraph &
 bamCompare -b1 bam/293T_Control_H3K9me2_12hr.bam -b2 bam/293T_Control_Input_12hr.bam --operation subtract -o bedgraph/293T_Control_H3K9me2_12hr_InputSubtracted.bdg  -of bedgraph &
 bamCompare -b1 bam/293T_150DFO_POLII_12hr.bam -b2 bam/293T_150DFO_Input_12hr.bam --operation subtract -o bedgraph/293T_150DFO_POLII_12hr_InputSubtracted.bdg  -of bedgraph &
@@ -60,13 +61,15 @@ do
     /projects/p20742/tools/bin/bedGraphToBigWig bedgraph/$sample.pushToZero.sorted.bdg /projects/p20742/anno/chromSizes/hg19.chrom.sizes bw/$sample.pushToZero.bw
 done
 
-bigwigCompare --bigwig1 bw/NewKDM3B_sh3A3B_H3K9me2.InputSubtracted.pushToZero.bw --bigwig2 bw/NewKDM3B_shC_H3K9me2.InputSubtracted.pushToZero.bw --pseudocount 1 --operation log2 -o bw/logFC.NewKDM3B.sh3A3BovershC.H3K9me2.ISPTZ.bw
-
 # Calculate logFC bigWigs, using a pseudocount of 1 so that there are no division by 0 errors.
+
  bigwigCompare --bigwig1 bw/293T_150DFO_POLII_12hr_InputSubtracted.pushToZero.bw --bigwig2 bw/293T_Control_POLII_12hr_InputSubtracted.pushToZero.bw --pseudocount 1 --operation log2 -o bw/logFC.150DFOoverControl.POLII.ISPTZ.bw
  bigwigCompare --bigwig1 bw/293T_150DFO_H3K9me2_12hr_InputSubtracted.pushToZero.bw --bigwig2 bw/293T_Control_H3K9me2_12hr_InputSubtracted.pushToZero.bw --pseudocount 1 --operation log2 -o bw/logFC.150DFOoverControl.H3K9me2.ISPTZ.bw
 
-#Generate subtracted bigwigs in addition to Log2FC
+ # Also for the publicly available data.
+ bigwigCompare --bigwig1 bw/NewKDM3B_sh3A3B_H3K9me2.InputSubtracted.pushToZero.bw --bigwig2 bw/NewKDM3B_shC_H3K9me2.InputSubtracted.pushToZero.bw --pseudocount 1 --operation log2 -o bw/logFC.NewKDM3B.sh3A3BovershC.H3K9me2.ISPTZ.bw
+
+# Generate subtracted bigwigs in addition to Log2FC
  bigwigCompare --bigwig1 bw/293T_150DFO_H3K9me2_12hr_InputSubtracted.pushToZero.bw --bigwig2 bw/293T_Control_H3K9me2_12hr_InputSubtracted.pushToZero.bw --pseudocount 1 --operation subtract -o bw/Subtract.150DFOminControl.H3K9me2.ISPTZ.bw
  bigwigCompare --bigwig1 bw/NewKDM3B_sh3A3B_H3K9me2.InputSubtracted.pushToZero.bw --bigwig2 bw/NewKDM3B_shC_H3K9me2.InputSubtracted.pushToZero.bw --pseudocount 1 --operation subtract -o bw/Subtract.NewKDM3B.sh3A3BminshC.H3K9me2.ISPTZ.bw
  
@@ -80,7 +83,7 @@ awk -F "\t" '{print $7,$9}' bed/hg19.knownGene.gtf | awk -F "\"" '{print $1,$4}'
 sort -k 5 bed/knownCanonical.txt  > bed/knownCanonical.geneSorted.txt
 join -1 5 -2 1 bed/knownCanonical.geneSorted.txt bed/hg19.knownGene.justStrand.gtf | awk '{printf "%s\t%d\t%d\t%s\t%d\t%s\n",$2,$3,$4,$1,1,$7}' > bed/knownCanonical.withStrand.bed
 
-# Using Ensembl v75 for hg19, identify all canonical genes that overlap a Pol II peak, and then remove any duplicates.
+# Identify all canonical transcripts that overlap a Pol II peak, and then remove any duplicates.
 bedtools intersect -wa -a bed/knownCanonical.withStrand.bed -b bed/293T_*POLII*macsPeaks.bed | sort | uniq > bed/knownCanonical.genesWithPOLIIpeaks.bed
 
 #Generating Heatmaps comparing  H3K9me2 KDM3A and KDM3B plusMin 5kb around POLII occupied genes --> Extended data figure 8A
