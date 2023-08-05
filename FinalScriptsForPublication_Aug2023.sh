@@ -17,8 +17,9 @@ module load deeptools
 module load bedtools/2.29.1
 export PATH=$PATH:/projects/b1025/tools/MACS-1.4.2/bin
 export PYTHONPATH=/projects/b1025/tools/MACS-1.4.2/lib/python2.6/site-packages:$PYTHONPATH
-module load ngsplot
 module load R/3.3.3
+# bedGraphToBigWig is a utility downloaded from the UCSC genome browser.
+# Other used tools are either provided perl scripts or deeptools or bedtools utilities.
 
 # The following code was used to generate Figure 6J-M, Extended data figure 5A-D, Extended data figure 6A, Extended data figure 8A-3.
 
@@ -140,7 +141,8 @@ plotCorrelation --corData heatmaps/InputandSubtract_Samples.plusMin1kb.bed.npz \
 
 # Author: Patrick Ozark
 #
-# Modified by Jason Shapiro and Elizabeth Bartom for iron chelation / MTOR project with Jason Shapiro
+# Original perl code for pause index written by Patrick Ozark and published in this paper:  https://pubmed.ncbi.nlm.nih.gov/28860207/
+# Modified by Jason Shapiro and Elizabeth Bartom for iron chelation / MTOR project with Jason Shapiro, and included on Github 
 
 module load bedtools
 export PATH=$PATH:/projects/b1025/tools/MACS-1.4.2/bin
@@ -169,6 +171,7 @@ cat bed/$filePrefix.sorted.TSS.pos.bed bed/$filePrefix.sorted.TSS.neg.bed > bed/
 perl removeOverlappingGenes.pl bed/$filePrefix.sorted.bed bed/$filePrefix.sorted.TSS.bed > bed/$filePrefix.nonOverlapping.bed
 
 # Some EnsG ids have more than one "canonical transcript"; remove those
+# (This appears to be the consequence of one:many and many:one relationships between the UC ids and the ENSG ids.)
 awk -F "\t" '{print $4}' bed/$filePrefix.nonOverlapping.bed  | sort | uniq -c | sort -n | awk '$1 > 1 && $2 ne "" {print $2}' > bed/$filePrefix.multiTxGenes.txt
 wc bed/$filePrefix.nonOverlapping.bed
 wc bed/$filePrefix.multiTxGenes.txt
