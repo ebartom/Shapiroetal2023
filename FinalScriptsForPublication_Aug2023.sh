@@ -7,8 +7,8 @@
 #SBATCH -o "%x.o%j"
 #SBATCH -N 1                 ## number of nodes
 #SBATCH -n 24                 ## number of cores
-#SBATCH -t 12:00:00          ## walltime
-#SBATCH --mem=36000
+#SBATCH -t 24:00:00          ## walltime
+#SBATCH --mem=50000
 
 
 module purge all
