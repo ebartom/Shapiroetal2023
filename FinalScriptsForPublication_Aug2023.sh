@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -A b1042             ## account (unchanged)
 #SBATCH -p genomics          ## "-p" instead of "-q"
-#SBATCH -J compute_matrix         ## job name
+#SBATCH -J ShapiroEtAl.codeTest         ## job name
 #SBATCH --mail-type=FAIL,TIME_LIMIT_90
 #SBATCH --mail-user=jason.shapiro@northwestern.edu
 #SBATCH -o "%x.o%j"
@@ -28,6 +28,7 @@ module load R/3.3.3
 #Generating ISPTZ files for POLII/H3K9me2 for  Control and DFO groups (for UCSC genome browser tracks).
 # First generate bedgraphs from the bam files, subtracting input samples from the specific ChIP-seq files
 # Bam files are not made available on Github, because they are too large.  Fastq files are available from GEO at https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE214019 and were aligned to hg19 using Bowtie.
+echo "Generating ISPTZ tracks for PolII/H3K9me2"
 bamCompare -b1 bam/293T_150DFO_H3K9me2_12hr.bam -b2 bam/293T_150DFO_Input_12hr.bam --operation subtract -o bedgraph/293T_150DFO_H3K9me2_12hr_InputSubtracted.bdg -of bedgraph &
 bamCompare -b1 bam/293T_Control_H3K9me2_12hr.bam -b2 bam/293T_Control_Input_12hr.bam --operation subtract -o bedgraph/293T_Control_H3K9me2_12hr_InputSubtracted.bdg  -of bedgraph &
 bamCompare -b1 bam/293T_150DFO_POLII_12hr.bam -b2 bam/293T_150DFO_Input_12hr.bam --operation subtract -o bedgraph/293T_150DFO_POLII_12hr_InputSubtracted.bdg  -of bedgraph &
@@ -35,17 +36,18 @@ bamCompare -b1 bam/293T_Control_POLII_12hr.bam -b2 bam/293T_Control_Input_12hr.b
 
 wait
 # Next, take the input-subtracted bedgraphs above, and replace negative numbers with 0.  Then convert bedgraphs to bigwigs.
+echo "Pushing negative values to zero, for input subtracted PolII/H3K9me2"
 for sample in "293T_150DFO_H3K9me2_12hr_InputSubtracted" "293T_Control_H3K9me2_12hr_InputSubtracted" "293T_Control_POLII_12hr_InputSubtracted" "293T_150DFO_POLII_12hr_InputSubtracted"
  do
      awk '$4 < 0 {printf "%s\t%d\t%d\t%d\n",$1,$2,$3,0}' bedgraph/$sample.bdg > bedgraph/$sample.pushToZero.bdg
      awk '$4 >= 0' bedgraph/$sample.bdg >> bedgraph/$sample.pushToZero.bdg
      sort -k1,1 -k2,2n bedgraph/$sample.pushToZero.bdg > bedgraph/$sample.pushToZero.sorted.bdg
-     /projects/p20742/tools/bin/bedGraphToBigWig bedgraph/$sample.pushToZero.sorted.bdg /projects/p20742/anno/chromSizes/hg19.chrom.sizes bw/$sample.pushToZero.bw
+     /projects/p20742/tools/bin/bedGraphToBigWig bedgraph/$sample.pushToZero.sorted.bdg hg19.chrom.sizes bw/$sample.pushToZero.bw
 done
 
 # This ISPTZ analysis was repeated for publicly available data to generate ISPTZ files for shKDM3A3B and shC
 # Publicly available data from https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE127624 (KDM3A) and https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE71885 (H3K9me2, KDM3B) were downloaded and aligned to generate bam files.
-
+echo "Repeat ISPTZ for publicly available tracks."
 bamCompare -b1 New_KDM3B/New_KDM3B/bam/H3K9me2_shC.bam -b2 New_KDM3B/New_KDM3B/bam/Input_shC.bam --pseudocount 1 --operation log2 -o bw/NewKDM3B_shC.H3K9me2_Log2FC_over_Input.bw &
 bamCompare -b1 New_KDM3B/New_KDM3B/bam/H3K9me2_sh3A3B.bam -b2 New_KDM3B/New_KDM3B/bam/Input_sh3A3B.bam --pseudocount 1 --operation log2 -o bw/NewKDM3B_sh3A3B.H3K9me2_Log2FC_over_Input.bw &
 
@@ -59,11 +61,11 @@ do
     awk '$4 < 0 {printf "%s\t%d\t%d\t%d\n",$1,$2,$3,0}' bedgraph/$sample.bdg > bedgraph/$sample.pushToZero.bdg
     awk '$4 >= 0' bedgraph/$sample.bdg >> bedgraph/$sample.pushToZero.bdg
     sort -k1,1 -k2,2n bedgraph/$sample.pushToZero.bdg > bedgraph/$sample.pushToZero.sorted.bdg
-    /projects/p20742/tools/bin/bedGraphToBigWig bedgraph/$sample.pushToZero.sorted.bdg /projects/p20742/anno/chromSizes/hg19.chrom.sizes bw/$sample.pushToZero.bw
+    /projects/p20742/tools/bin/bedGraphToBigWig bedgraph/$sample.pushToZero.sorted.bdg hg19.chrom.sizes bw/$sample.pushToZero.bw
 done
 
 # Calculate logFC bigWigs, using a pseudocount of 1 so that there are no division by 0 errors.
-
+echo "Calculate logFC bigwigs."
  bigwigCompare --bigwig1 bw/293T_150DFO_POLII_12hr_InputSubtracted.pushToZero.bw --bigwig2 bw/293T_Control_POLII_12hr_InputSubtracted.pushToZero.bw --pseudocount 1 --operation log2 -o bw/logFC.150DFOoverControl.POLII.ISPTZ.bw
  bigwigCompare --bigwig1 bw/293T_150DFO_H3K9me2_12hr_InputSubtracted.pushToZero.bw --bigwig2 bw/293T_Control_H3K9me2_12hr_InputSubtracted.pushToZero.bw --pseudocount 1 --operation log2 -o bw/logFC.150DFOoverControl.H3K9me2.ISPTZ.bw
 
@@ -71,6 +73,7 @@ done
  bigwigCompare --bigwig1 bw/NewKDM3B_sh3A3B_H3K9me2.InputSubtracted.pushToZero.bw --bigwig2 bw/NewKDM3B_shC_H3K9me2.InputSubtracted.pushToZero.bw --pseudocount 1 --operation log2 -o bw/logFC.NewKDM3B.sh3A3BovershC.H3K9me2.ISPTZ.bw
 
 # Generate subtracted bigwigs in addition to Log2FC
+echo "Subtract bigwigs"
  bigwigCompare --bigwig1 bw/293T_150DFO_H3K9me2_12hr_InputSubtracted.pushToZero.bw --bigwig2 bw/293T_Control_H3K9me2_12hr_InputSubtracted.pushToZero.bw --pseudocount 1 --operation subtract -o bw/Subtract.150DFOminControl.H3K9me2.ISPTZ.bw
  bigwigCompare --bigwig1 bw/NewKDM3B_sh3A3B_H3K9me2.InputSubtracted.pushToZero.bw --bigwig2 bw/NewKDM3B_shC_H3K9me2.InputSubtracted.pushToZero.bw --pseudocount 1 --operation subtract -o bw/Subtract.NewKDM3B.sh3A3BminshC.H3K9me2.ISPTZ.bw
  
@@ -89,6 +92,7 @@ bedtools intersect -wa -a bed/knownCanonical.withStrand.bed -b bed/293T_*POLII*m
 
 #Generating Heatmaps comparing  H3K9me2 KDM3A and KDM3B plusMin 5kb around POLII occupied genes --> Extended data figure 8A
 # KDM3A data ( ENCFF387ROQ_KDM3A.bigWig ) downloaded from ENCODE
+echo "Create heatmaps with H3K9me2 plus publicly available KDM3A and KDM3B"
 computeMatrix reference-point --referencePoint TSS -S bw/logFC.150DFOoverControl.H3K9me2.ISPTZ.bw bw/ENCFF387ROQ_KDM3A.bigWig New_KDM3B/New_KDM3B/tracks/KDM3B_shC.bw -R bed/knownCanonical.genesWithPOLIIpeaks.bed -a 5000 -b 5000 -p 24 -out heatmaps/ISPTZ.allPOLII.boundgenes.Canonical.H3K9me2andKDM3Anew3Bsignal.5000.5000.TSSref.matrix.txt.gz
 
 plotHeatmap --matrixFile heatmaps/ISPTZ.allPOLII.boundgenes.Canonical.H3K9me2andKDM3Anew3Bsignal.5000.5000.TSSref.matrix.txt.gz --outFileSortedRegions bed/ISPTZ.allPOLII.boundgenes.Canonical.H3K9me2andKDM3Anew3Bsignal.5000.5000.TSSref.heatmap.km3.bed --kmeans 3 -out heatmaps/ISPTZ.allPOLII.boundgenes.Canonical.H3K9me2andKDM3Anew3Bsignal.5000.5000.TSSref.heatmap.km3.pdf --samplesLabel "logFC_H3K9me2" "KDM3A" "KDM3B" --zMin -2 0 0 --zMax 2 20 1.5 --yMin -0 0 0 --yMax 0.4 8 0.4 --colorList 'blue,white,red' 'white,purple' 'white,green'
@@ -97,12 +101,14 @@ plotHeatmap --matrixFile heatmaps/ISPTZ.allPOLII.boundgenes.Canonical.H3K9me2and
 # Next generate correlation plot comparing the change in H3K9me2 after DFO treatment to knockdown of KDM3A and KDM3B --> Extended data figure 8C
 
 # First make a bedfile with coordinates for 1 kb on either side of the TSS for each of the canonical genes that overlap PolII
+echo "Pull out TSSs for canonical genes that overlap polII peaks"
 awk '$6 == "+" {printf "%s\t%s\t%s\t%s\t1\t%s\n",$1,$2-1,$2,$4,$6}'  bed/knownCanonical.genesWithPOLIIpeaks.bed > bed/knownCanonical.genesWithPolIIpeaks.posStrand.1bp.upstream.bed
 awk '$6 == "-" {printf "%s\t%s\t%s\t%s\t1\t%s\n",$1,$3,$3+1,$4,$6}'  bed/knownCanonical.genesWithPOLIIpeaks.bed > bed/knownCanonical.genesWithPolIIpeaks.negStrand.1bp.upstream.bed
 cat bed/knownCanonical.genesWithPolIIpeaks.posStrand.1bp.upstream.bed bed/knownCanonical.genesWithPolIIpeaks.negStrand.1bp.upstream.bed |  sort -k 1,1 -k2,2n  > bed/knownCanonical.genesWithPOLIIpeaks.1bp.upstream.bed
-bedtools slop -i bed/knownCanonical.genesWithPOLIIpeaks.1bp.upstream.bed -g /projects/p20742/anno/chromSizes/hg19.chrom.sizes -l 999 -r 1000 > bed/knownCanonical.genesWithPOLIIpeaks.plusMin1kb.bed
+bedtools slop -i bed/knownCanonical.genesWithPOLIIpeaks.1bp.upstream.bed -g hg19.chrom.sizes -l 999 -r 1000 > bed/knownCanonical.genesWithPOLIIpeaks.plusMin1kb.bed
 
 # Then calculate the correlation within these regions for each sample.
+echo "Make correlation table for subtracted files"
 multiBigwigSummary BED-file \
 		   --bwfiles \
 		   bw/Subtract.150DFOminControl.H3K9me2.ISPTZ.bw \
@@ -114,6 +120,7 @@ multiBigwigSummary BED-file \
 		   --BED bed/knownCanonical.genesWithPOLIIpeaks.plusMin1kb.bed \
 		   -p 24 -out heatmaps/InputandSubtract_Samples.plusMin1kb.bed.npz
 
+echo "Make correlation table for log2FC files"
 multiBigwigSummary BED-file \
 		   --bwfiles \
 		   bw/logFC.150DFOminControl.H3K9me2.ISPTZ.bw \
@@ -126,6 +133,7 @@ multiBigwigSummary BED-file \
 		   -p 24 -out heatmaps/InputandLog2FC_Samples.plusMin1kb.bed.npz
 
 # and Plot
+echo "Make plots from tables"
 plotCorrelation --corData heatmaps/InputandLog2FC_Samples.plusMin1kb.bed.npz \
 		--corMethod pearson \
 		--whatToPlot heatmap \
@@ -157,6 +165,7 @@ module load python/anaconda3.6
 filePrefix=final_transcripts_full_length
 echo $filePrefix
 # knownToEnsembl.txt and ensGene.txt files can be found here:  http://hgdownload.cse.ucsc.edu/goldenPath/hg19/database/
+echo "Get the right genomic regions"
 perl getFullLengthTranscripts.v4.pl bed/knownCanonical.genesWithPOLIIpeaks.bed knownToEnsembl.txt ensGene.txt >  bed/$filePrefix.all.bed
 
 #Sort the bed file
@@ -168,6 +177,7 @@ awk -F "\t" '$6=="-" {printf "%s\t%s\t%s\t%s\t%s\t%s\n",$1,$3-1,$3,$4,$5,$6}' be
 cat bed/$filePrefix.sorted.TSS.pos.bed bed/$filePrefix.sorted.TSS.neg.bed > bed/$filePrefix.sorted.TSS.bed
 
 # Remove overlapping genes and genes within 1 kb of each other (based on just TSS locations)
+echo "Clean up the list; remove overlapping and duplicate transcripts"
 perl removeOverlappingGenes.pl bed/$filePrefix.sorted.bed bed/$filePrefix.sorted.TSS.bed > bed/$filePrefix.nonOverlapping.bed
 
 # Some EnsG ids have more than one "canonical transcript"; remove those
@@ -179,6 +189,7 @@ wc bed/$filePrefix.multiTxGenes.txt
 grep -v -f bed/$filePrefix.multiTxGenes.txt bed/$filePrefix.nonOverlapping.bed > bed/$filePrefix.nonOverlapping.uniq.bed
 
 # Get final transcript coordinates in bed format for promoter (-100 to +300) and gene body (+300 to +2000) - output = prefix.promoter.bed and prefix.genebody.bed
+echo "Get the coordinates for the promoter region vs gene body"
 perl getPromoterGeneBody.v3.pl bed/$filePrefix.nonOverlapping.uniq.bed  
 
 # Get final transcript coordinates in bed format for full gene body (+300 to TES/TTS) - output = prefix.fullgenebody.bed
@@ -189,11 +200,13 @@ grep -vwE "chrM" 293T_150DFO_PolII.ISPTZ.bdg > 293T_150DFO_PolII.ISPTZ.filtered.
 grep -vwE "chrM" 293T_Control_PolII.ISPTZ.bdg > 293T_Control_PolII.ISPTZ.filtered.bdg
 
 # Sort the bed files to match the bedgraphs.
+echo "Sorting bed files."
 sort -k 1,1 -k2,2n $filePrefix.nonOverlapping.uniq.promoter.bed > $filePrefix.nonOverlapping.uniq.promoter.sorted.bed
 sort -k 1,1 -k2,2n $filePrefix.nonOverlapping.uniq.genebody.bed > $filePrefix.nonOverlapping.uniq.genebody.sorted.bed
 sort -k 1,1 -k2,2n $filePrefix.nonOverlapping.uniq.fullgenebody.bed > $filePrefix.nonOverlapping.uniq.fullgenebody.sorted.bed
 
 # Get sum of normalized coverage for promoter, gene body, and full gene body for final transcripts
+echo "Get normalized read counts for each class of gene region."
 bedtools map -a $filePrefix.nonOverlapping.uniq.promoter.sorted.bed -b 293T_Control_PolII.ISPTZ.filtered.bdg -c 4 -o sum > norm.promoter.Control.counts.nonOverlapping.uniq.txt &
 bedtools map -a $filePrefix.nonOverlapping.uniq.promoter.sorted.bed -b 293T_150DFO_PolII.ISPTZ.filtered.bdg -c 4 -o sum > norm.promoter.150DFO.counts.nonOverlapping.uniq.txt &
 
@@ -210,6 +223,7 @@ wait
 wait
 wait
 
+echo "Combine the data into one larger table"
 for s in "Control" "150DFO"
 do
     # Combine promoter and genebody in a single file
@@ -220,6 +234,7 @@ done
 #awk -F "\t" '{printf "%s\t%s\t%s\t%s.%s\t%f\t%f\t%f\t%f\n",$1,$2,$3,$4,$5,$6,$7,$8,($6+1)/($7+1)}'  norm.Control.counts.nonOverlapping.uniq.txt >  norm.Control.uniqcounts.plusRatio.txt
 
 # These bed files can be loaded into UCSC genome browser to check the regions and scores
+echo "Generate bed files for quality control"
 for g in "promoter" "genebody" "fullgenebody"
 do
     for s in "Control" "150DFO"
@@ -232,10 +247,12 @@ done
 join -j 5 -o 1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,2.7,2.8 norm.promoter.genebody.Control.counts.nonOverlapping.uniq.txt norm.promoter.genebody.150DFO.counts.nonOverlapping.uniq.txt | perl -pe "s/ /\t/g" > norm.promoter.genebody.Control.150DFO.counts.nonOverlapping.uniq.txt
 
 # Calculate the log2FC ratio between DFO and Control for both promoters and genebody (with a pseudocount of 1)
+echo "Calculating pausing statistics"
 awk -F "\t" '{printf "%s\t%s\t%s\t%s\t%s\t%s\t%f\t%f\t%f\t%f\t%f\t%f\n",$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,log(($9+1)/($7+1))/log(2),log(($10+1)/($8+1))/log(2)}' norm.promoter.genebody.Control.150DFO.counts.nonOverlapping.uniq.txt > temp.txt
 echo '#Chr Start Stop ENSGid ENSTid Strand PromoterControl GeneBodyControl Promoter150DFO GeneBody150DFO log2FC.Promoter log2FC.GeneBody' | perl -pe "s/ /\t/g" | cat  > PolR2A.Occupancy.GeneList.log2FC.txt
 cat temp.txt >> PolR2A.Occupancy.GeneList.log2FC.txt
 
+echo "These commands were originally done in Excel; now moved to shell"
 # Sort the list by log2FC.GeneBody, and pull out the lines with values > 1.25*stdev(log2FC.GeneBody)+ mean(log2FC.GeneBody) = "0.776257", to be the "up" set.
 sort -n -k 12 PolR2A.Occupancy.GeneList.log2FC.txt | grep -v ^# | awk -F "\t" '$12 > 0.776257 {print $4}' > PolR2A.Occupancy.GeneList.log2FC.up.txt
 
@@ -259,15 +276,18 @@ sort -n -k 11 PolR2A.Occupancy.GeneList.log2FC.txt | grep -v ^# | awk -F "\t" '$
 
 # Next make profile plot for Extended Data Figure 5A
 # First make bed files for each group
+echo "Generating bed files for different classes of affected genes"
 grep -f PolR2A.Occupancy.GeneList.log2FC.up.txt bed/final_transcripts_full_length.sorted.TSS.bed | awk '{printf "%s\t%s\t%s\t%s.%s\t%d\t%s\n",$1,$2,$3,$4,$5,1000,$6}' > PolR2A.Occupancy.GeneList.log2FC.up.TSS.bed
 grep -f PolR2A.Occupancy.GeneList.log2FC.paused.txt bed/final_transcripts_full_length.sorted.TSS.bed | awk '{printf "%s\t%s\t%s\t%s.%s\t%d\t%s\n",$1,$2,$3,$4,$5,1000,$6}' > PolR2A.Occupancy.GeneList.log2FC.paused.TSS.bed
 grep -f PolR2A.Occupancy.GeneList.log2FC.down.txt bed/final_transcripts_full_length.sorted.TSS.bed | awk '{printf "%s\t%s\t%s\t%s.%s\t%d\t%s\n",$1,$2,$3,$4,$5,1000,$6}' > PolR2A.Occupancy.GeneList.log2FC.down.TSS.bed
 
 # Then plot them.
+echo "Plotting occupancy"
 computeMatrix reference-point -S bw/logFC.150DFOoverControl.POLII.ISPTZ.bw -R PolR2A.Occupancy.GeneList.log2FC.up.TSS.bed PolR2A.Occupancy.GeneList.log2FC.paused.TSS.bed PolR2A.Occupancy.GeneList.log2FC.down.TSS.bed -a 2000 -b 100 -o PolR2a.Occupancy.allGeneLists.matrix.gz
 plotProfile -m PolR2a.Occupancy.allGeneLists.matrix.gz --regionsLabel "Increased" "Paused" "Decreased" -o PolR2a.Occupancy.allGeneLists.plot.pdf
 
 # To Run GSEA we need common gene names not ENST values
+echo "Extracting mapping between uc ID and cgn and ENSG and ENST to convert to a list of ranked CGNs"
 # Download the conversion from UCSC using this command:
 mysql   --user=genome   -N   --host=genome-mysql.cse.ucsc.edu   -A   -D hg19   -e "select ensGene.name, name2, value from ensGene, ensemblToGeneName where ensGene.name = ensemblToGeneName.name" >   queryOutput.txt
 awk '{print $2,$3}' queryOutput.txt | perl -pe "s/ /\t/g"  | sort | uniq > EnsgToCGN.txt
