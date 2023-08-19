@@ -123,8 +123,8 @@ multiBigwigSummary BED-file \
 echo "Make correlation table for log2FC files"
 multiBigwigSummary BED-file \
 		   --bwfiles \
-		   bw/logFC.150DFOminControl.H3K9me2.ISPTZ.bw \
-		   bw/logFC.NewKDM3B.sh3A3BminshC.H3K9me2.ISPTZ.bw \
+		   bw/logFC.150DFOoverControl.H3K9me2.ISPTZ.bw \
+		   bw/logFC.NewKDM3B.sh3A3BovershC.H3K9me2.ISPTZ.bw \
        		   bw/Input_sh3A3B.bw \
  		   bw/Input_shC.bw \
 		   bw/293T_Control_Input_12hr.bw \
@@ -146,6 +146,7 @@ plotCorrelation --corData heatmaps/InputandSubtract_Samples.plusMin1kb.bed.npz \
 		--removeOutliers --plotNumbers \
 		-o heatmaps/InputandSubtract_Samples.plusMin1kb.bed.heatmap.png
 
+# All of the code has been validated on Quest above here; double-checking further code.
 
 # Author: Patrick Ozark
 #
@@ -155,7 +156,6 @@ plotCorrelation --corData heatmaps/InputandSubtract_Samples.plusMin1kb.bed.npz \
 module load bedtools
 export PATH=$PATH:/projects/b1025/tools/MACS-1.4.2/bin
 export PYTHONPATH=/projects/b1025/tools/MACS-1.4.2/lib/python2.6/site-packages:$PYTHONPATH
-module load ngsplot
 module load R/3.3.3
 module load python/anaconda3.6
 
@@ -183,7 +183,9 @@ perl removeOverlappingGenes.pl bed/$filePrefix.sorted.bed bed/$filePrefix.sorted
 # Some EnsG ids have more than one "canonical transcript"; remove those
 # (This appears to be the consequence of one:many and many:one relationships between the UC ids and the ENSG ids.)
 awk -F "\t" '{print $4}' bed/$filePrefix.nonOverlapping.bed  | sort | uniq -c | sort -n | awk '$1 > 1 && $2 ne "" {print $2}' > bed/$filePrefix.multiTxGenes.txt
+echo "Number of genes / transcripts"
 wc bed/$filePrefix.nonOverlapping.bed
+echo "Number of genes with multiple transcripts"
 wc bed/$filePrefix.multiTxGenes.txt
 # These are 75 genes that have multiple transcripts for the same gene, despite all of the above screening.  Discarding them.
 grep -v -f bed/$filePrefix.multiTxGenes.txt bed/$filePrefix.nonOverlapping.bed > bed/$filePrefix.nonOverlapping.uniq.bed
@@ -196,8 +198,8 @@ perl getPromoterGeneBody.v3.pl bed/$filePrefix.nonOverlapping.uniq.bed
 perl getFullGeneBody.v3.pl bed/$filePrefix.nonOverlapping.uniq.bed
 
 # Filter chrM from bedGraph files
-grep -vwE "chrM" 293T_150DFO_PolII.ISPTZ.bdg > 293T_150DFO_PolII.ISPTZ.filtered.bdg
-grep -vwE "chrM" 293T_Control_PolII.ISPTZ.bdg > 293T_Control_PolII.ISPTZ.filtered.bdg
+grep -vwE "chrM" bedgraph/293T_150DFO_POLII_12hr_InputSubtracted.pushToZero.sorted.bdg > 293T_150DFO_PolII.ISPTZ.filtered.bdg
+grep -vwE "chrM" bedgraph/293T_Control_POLII_12hr_InputSubtracted.pushToZero.sorted.bdg > 293T_Control_PolII.ISPTZ.filtered.bdg
 
 # Sort the bed files to match the bedgraphs.
 echo "Sorting bed files."
@@ -280,6 +282,8 @@ echo "Generating bed files for different classes of affected genes"
 grep -f PolR2A.Occupancy.GeneList.log2FC.up.txt bed/final_transcripts_full_length.sorted.TSS.bed | awk '{printf "%s\t%s\t%s\t%s.%s\t%d\t%s\n",$1,$2,$3,$4,$5,1000,$6}' > PolR2A.Occupancy.GeneList.log2FC.up.TSS.bed
 grep -f PolR2A.Occupancy.GeneList.log2FC.paused.txt bed/final_transcripts_full_length.sorted.TSS.bed | awk '{printf "%s\t%s\t%s\t%s.%s\t%d\t%s\n",$1,$2,$3,$4,$5,1000,$6}' > PolR2A.Occupancy.GeneList.log2FC.paused.TSS.bed
 grep -f PolR2A.Occupancy.GeneList.log2FC.down.txt bed/final_transcripts_full_length.sorted.TSS.bed | awk '{printf "%s\t%s\t%s\t%s.%s\t%d\t%s\n",$1,$2,$3,$4,$5,1000,$6}' > PolR2A.Occupancy.GeneList.log2FC.down.TSS.bed
+
+module load deeptools/3.5.1
 
 # Then plot them.
 echo "Plotting occupancy"
